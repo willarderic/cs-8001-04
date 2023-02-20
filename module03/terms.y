@@ -175,18 +175,27 @@ void printTokenInfo(const char* tokenType, const char* lexeme) {
     printf("TOKEN: %-15s  LEXEME: %s\n", tokenType, lexeme);
 }
 
-void walkTree(Node* node) {
+void walkTree(Node* node, int depth) {
     auto* unary_derived = dynamic_cast<UnaryTerm*>(node);
+    for (int i = 0; i < depth; ++i) {
+        std::cout << "--";
+    }
+    if (depth) {
+        std::cout << "> ";
+    }
+    
+    depth = depth + 1;
+    
     if (unary_derived) {
         cout << "(" << node->getID() << ", " << node->getName() << ")" << endl;
-        walkTree(unary_derived->childTerm);
+        walkTree(unary_derived->childTerm, depth);
         return;
     }
     auto* binary_derived = dynamic_cast<BinaryTerm*>(node);
     if (binary_derived) {
         cout << "(" << node->getID() << ", " << node->getName() << ")" << endl;
-        walkTree(binary_derived->leftTerm);
-        walkTree(binary_derived->rightTerm);
+        walkTree(binary_derived->leftTerm, depth);
+        walkTree(binary_derived->rightTerm, depth);
         return;
     }
     
@@ -207,6 +216,6 @@ int main(int argc, char** argv) {
     
     printf("Root ID: %d\n", (*root)->getID());
     
-    walkTree(*root);
+    walkTree(*root, 0);
     return 0;
 }
