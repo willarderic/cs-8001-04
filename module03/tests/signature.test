@@ -1,1 +1,1 @@
-verify(vk(prv_t_1),sign(ssk(prv_t_1), pub_t_2))
+verify(vk(prv_t_1),sign(ssk(prv_t_1), pub_t_2));

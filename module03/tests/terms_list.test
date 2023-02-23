@@ -1,0 +1,1 @@
+senc(prv_s, prv_k), senc(prv_k, prv_s), <senc(prv_k, prv_s), prv_k>, senc(prv_k_1, prv_k), prv_k; 

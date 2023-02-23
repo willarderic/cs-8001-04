@@ -49,6 +49,10 @@ PRV_VAR     prv_({ALPHANUM}|{UNDERSCORE})*
                 printTokenInfo("T_RANGLE", yytext);
 				return T_RANGLE;
 			}
+";"			{
+                printTokenInfo("T_SEMI", yytext);
+				return T_SEMI;
+			}
 "senc"      {
                 printTokenInfo("T_SENC", yytext);
                 return T_SENC;
