@@ -29,17 +29,17 @@ class Node {
 private:
     int id;
     string name;
-    bool marked;
+    bool m;
     NodeType type;
     
 public:
-    Node(string name, NodeType type): name(name), id(nextId++), marked(false), type(type) {}
+    Node(string name, NodeType type): name(name), id(nextId++), m(false), type(type) {}
     
-    void setMarked(bool b) { this->marked = b; }
+    void mark() { this->m = true; }
     
     int getID() { return id; }
     string getName() { return name; }
-    bool getMarked() { return marked; }
+    bool marked() { return m; }
     NodeType getType() { return type; }
     
     virtual ~Node() = default;

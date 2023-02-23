@@ -86,6 +86,7 @@ N_TERMS_LIST    : N_TERMS T_SEMI N_TERMS
                 {
                     prRule("N_TERMS_LIST", "N_TERMS T_SEMI");
                     Node* node = $1;
+                    node->mark();
                     terms_list.push_back($1);
                     target_term = $3;
                 }
@@ -93,7 +94,7 @@ N_TERMS_LIST    : N_TERMS T_SEMI N_TERMS
                 {
                     prRule("N_TERMS_LIST", "N_TERMS T_COMMA N_TERMS_LIST");
                     Node* node = $1;
-                    node->setMarked(true);
+                    node->mark();
                     terms_list.push_back($1);
                 }
                 ;
@@ -115,9 +116,9 @@ N_TERMS         : T_PRV
                         $$ = iter->second;
                     } else {
                         $$ = new Node($1, NodeType::PUB);
-                        $$->setMarked(true);
                         subterm_map[$1] = $$;
                     }
+                    $$->mark();
                     prRule("N_TERMS", "T_PUB");
                 }
                 | T_SENC T_LPAREN N_TERMS T_COMMA N_TERMS T_RPAREN
@@ -336,20 +337,20 @@ void printTree(Node* node, int depth) {
     
     auto* unary_derived = dynamic_cast<UnaryTerm*>(node);
     if (unary_derived) {
-        cout << "(" << node->getID() << ", " << node->getName() << ", " << boolalpha << node->getMarked() << ")" << endl;
+        cout << "(" << node->getID() << ", " << node->getName() << ", " << boolalpha << node->marked() << ")" << endl;
         printTree(unary_derived->childTerm, depth);
         return;
     }
     auto* binary_derived = dynamic_cast<BinaryTerm*>(node);
     if (binary_derived) {
-        cout << "(" << node->getID() << ", " << node->getName() << ", " << boolalpha << node->getMarked() << ")" << endl;
+        cout << "(" << node->getID() << ", " << node->getName() << ", " << boolalpha << node->marked() << ")" << endl;
         printTree(binary_derived->leftTerm, depth);
         printTree(binary_derived->rightTerm, depth);
         return;
     }
     
     // Else we are just a Node
-    cout << "(" << node->getID() << ", " << node->getName() << ", " << boolalpha << node->getMarked() << ")" << endl;
+    cout << "(" << node->getID() << ", " << node->getName() << ", " << boolalpha << node->marked() << ")" << endl;
 }
 
 void walkTree(Node* node) {
@@ -372,12 +373,52 @@ void walkTree(Node* node) {
 }
 
 void deduction() {
-    bool newMark = false;
+    bool newMark;
     do {
+        newMark = false;
         for (auto it = idToNodeMap.begin(); it != idToNodeMap.end(); it++) {
             switch (it->second->getType()) {
-                default:
+                case NodeType::PRV: break;
+                case NodeType::PUB: break;
+                case NodeType::SENC:
+                {
+                    BinaryTerm* senc = dynamic_cast<BinaryTerm*>(it->second);
+                    if (senc->leftTerm->marked() && senc->rightTerm->marked() && !senc->marked()) {
+                        senc->mark();
+                        newMark = true;
+                    }
+                    if (senc->marked() && senc->leftTerm->marked() && !senc->rightTerm->marked()) {
+                        senc->rightTerm->mark();
+                        newMark = true;
+                    }
                     break;
+                }
+                case NodeType::SDEC: break;
+                case NodeType::PAIR:
+                {
+                    BinaryTerm* pair = dynamic_cast<BinaryTerm*>(it->second);
+                    if (pair->leftTerm->marked() && pair->rightTerm->marked() && !pair->marked()) {
+                        pair->mark();
+                        newMark = true;
+                    }
+                    
+                    if (pair->marked() && !pair->leftTerm->marked() && !pair->rightTerm->marked()) {
+                        pair->leftTerm->mark();
+                        pair->rightTerm->mark();
+                        newMark = true;
+                    }
+                    break;
+                }
+                case NodeType::PI_1: break;
+                case NodeType::PI_2: break;
+                case NodeType::PK: break;
+                case NodeType::SK: break;
+                case NodeType::AENC: break;
+                case NodeType::ADEC: break;
+                case NodeType::VK: break;
+                case NodeType::SSK: break;
+                case NodeType::SIGN: break;
+                case NodeType::VERIFY: break;
             }
         }
     } while (newMark);
@@ -398,10 +439,16 @@ int main(int argc, char** argv) {
     }
     walkTree(target_term);
     
-    cout << "Nodes: " << endl;
-    for (auto it = idToNodeMap.begin(); it != idToNodeMap.end(); it++) {
-        cout << "(" << it->first << ", " << it->second->getName() << ")" << endl;
-    }
+    deduction();
     
+    cout << "Nodes after deduction: " << endl;
+    for (auto it = idToNodeMap.begin(); it != idToNodeMap.end(); it++) {
+        cout << "(" << it->first << ", " << it->second->getName() << ", " << boolalpha << it->second->marked() << ")" << endl;
+    }
+    if (target_term->marked()) {
+        cout << "YES" << endl;
+    } else {
+        cout << "NO" << endl;
+    }
     return 0;
 }
