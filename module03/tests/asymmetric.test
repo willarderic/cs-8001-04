@@ -1,1 +1,0 @@
-adec(sk(prv_sk), aenc(pub_message, pk(pub_pk)));

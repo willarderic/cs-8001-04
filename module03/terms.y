@@ -17,21 +17,26 @@
 #include <stack>
 #include <unordered_map>
 #include <vector>
+#include <map>
 
 #include "Term.h"
 
 using namespace std;
 
 #define OUTPUT_TOKENS       0
-#define OUTPUT_PRODUCTIONS  1
+#define OUTPUT_PRODUCTIONS  0
 
 int yyerror(const char *s);
 void ignoreComment();
 void prRule(const char*, const char*);
 void printTokenInfo(const char* tokenType, const char* lexeme);
+void printTree(Node* node, int depth);
+void walkTree(Node* node);
 
+map<int, Node*> idToNodeMap;
 unordered_map<string, Node*> subterm_map;
 vector<Node*> terms_list;
+Node* target_term;
 
 extern "C" {
     int yyparse(vector<Node*> terms_list);
@@ -77,20 +82,18 @@ N_START         : N_TERMS_LIST
                     return 0;
                 }
                 ;
-N_TERMS_LIST    : /* Epsilon */
-                {
-                    prRule("N_TERMS_LIST", "epsilon");
-                }
-                | N_TERMS T_SEMI
+N_TERMS_LIST    : N_TERMS T_SEMI N_TERMS
                 {
                     prRule("N_TERMS_LIST", "N_TERMS T_SEMI");
                     Node* node = $1;
                     terms_list.push_back($1);
+                    target_term = $3;
                 }
                 | N_TERMS T_COMMA N_TERMS_LIST 
                 {
                     prRule("N_TERMS_LIST", "N_TERMS T_COMMA N_TERMS_LIST");
                     Node* node = $1;
+                    node->setMarked(true);
                     terms_list.push_back($1);
                 }
                 ;
@@ -100,7 +103,7 @@ N_TERMS         : T_PRV
                     if (iter != subterm_map.end()) {
                         $$ = iter->second;
                     } else {
-                        $$ = new Node($1);
+                        $$ = new Node($1, NodeType::PRV);
                         subterm_map[$1] = $$;
                     }
                     prRule("N_TERMS", "T_PRV");
@@ -111,7 +114,8 @@ N_TERMS         : T_PRV
                     if (iter != subterm_map.end()) {
                         $$ = iter->second;
                     } else {
-                        $$ = new Node($1);
+                        $$ = new Node($1, NodeType::PUB);
+                        $$->setMarked(true);
                         subterm_map[$1] = $$;
                     }
                     prRule("N_TERMS", "T_PUB");
@@ -125,7 +129,7 @@ N_TERMS         : T_PRV
                     if (iter != subterm_map.end()) {
                         $$ = iter->second;
                     } else {
-                        $$ = new BinaryTerm(subterm, $3, $5);
+                        $$ = new BinaryTerm(subterm, NodeType::SENC, $3, $5);
                         subterm_map[subterm] = $$;
                     }
                     
@@ -140,7 +144,7 @@ N_TERMS         : T_PRV
                     if (iter != subterm_map.end()) {
                         $$ = iter->second;
                     } else {
-                        $$ = new BinaryTerm(subterm, $3, $5);
+                        $$ = new BinaryTerm(subterm, NodeType::SDEC, $3, $5);
                         subterm_map[subterm] = $$;
                     }
                     prRule("N_TERMS", "sdec(Terms, Terms)");
@@ -154,7 +158,7 @@ N_TERMS         : T_PRV
                     if (iter != subterm_map.end()) {
                         $$ = iter->second;
                     } else {
-                        $$ = new BinaryTerm(subterm, $2, $4);
+                        $$ = new BinaryTerm(subterm, NodeType::PAIR, $2, $4);
                         subterm_map[subterm] = $$;
                     }
                     prRule("N_TERMS", "<Terms, Terms>");
@@ -168,7 +172,7 @@ N_TERMS         : T_PRV
                     if (iter != subterm_map.end()) {
                         $$ = iter->second;
                     } else {
-                        $$ = new UnaryTerm(subterm, $3);
+                        $$ = new UnaryTerm(subterm, NodeType::PI_1, $3);
                         subterm_map[subterm] = $$;
                     }
                     prRule("N_TERMS", "pi_1(Terms)");
@@ -182,7 +186,7 @@ N_TERMS         : T_PRV
                     if (iter != subterm_map.end()) {
                         $$ = iter->second;
                     } else {
-                        $$ = new UnaryTerm(subterm, $3);
+                        $$ = new UnaryTerm(subterm, NodeType::PI_2, $3);
                         subterm_map[subterm] = $$;
                     }
                     prRule("N_TERMS", "pi_2(Terms)");
@@ -196,7 +200,7 @@ N_TERMS         : T_PRV
                     if (iter != subterm_map.end()) {
                         $$ = iter->second;
                     } else {
-                        $$ = new UnaryTerm(subterm, $3);
+                        $$ = new UnaryTerm(subterm, NodeType::PK, $3);
                         subterm_map[subterm] = $$;
                     }
                     prRule("N_TERMS", "pk(Terms)");
@@ -210,7 +214,7 @@ N_TERMS         : T_PRV
                     if (iter != subterm_map.end()) {
                         $$ = iter->second;
                     } else {
-                        $$ = new UnaryTerm(subterm, $3);
+                        $$ = new UnaryTerm(subterm, NodeType::SK, $3);
                         subterm_map[subterm] = $$;
                     }
                     prRule("N_TERMS", "sk(Terms)");
@@ -224,7 +228,7 @@ N_TERMS         : T_PRV
                     if (iter != subterm_map.end()) {
                         $$ = iter->second;
                     } else {
-                        $$ = new BinaryTerm(subterm, $3, $5);
+                        $$ = new BinaryTerm(subterm, NodeType::AENC, $3, $5);
                         subterm_map[subterm] = $$;
                     }
                     prRule("N_TERMS", "aenc(Terms, Terms)");
@@ -238,7 +242,7 @@ N_TERMS         : T_PRV
                     if (iter != subterm_map.end()) {
                         $$ = iter->second;
                     } else {
-                        $$ = new BinaryTerm(subterm, $3, $5);
+                        $$ = new BinaryTerm(subterm, NodeType::ADEC, $3, $5);
                         subterm_map[subterm] = $$;
                     }
                     prRule("N_TERMS", "adec(Terms, Terms)");
@@ -252,7 +256,7 @@ N_TERMS         : T_PRV
                     if (iter != subterm_map.end()) {
                         $$ = iter->second;
                     } else {
-                        $$ = new UnaryTerm(subterm, $3);
+                        $$ = new UnaryTerm(subterm, NodeType::VK, $3);
                         subterm_map[subterm] = $$;
                     }
                     prRule("N_TERMS", "vk(Terms)");
@@ -266,7 +270,7 @@ N_TERMS         : T_PRV
                     if (iter != subterm_map.end()) {
                         $$ = iter->second;
                     } else {
-                        $$ = new UnaryTerm(subterm, $3);
+                        $$ = new UnaryTerm(subterm, NodeType::SSK, $3);
                         subterm_map[subterm] = $$;
                     }
                     prRule("N_TERMS", "ssk(Terms)");
@@ -280,7 +284,7 @@ N_TERMS         : T_PRV
                     if (iter != subterm_map.end()) {
                         $$ = iter->second;
                     } else {
-                        $$ = new BinaryTerm(subterm, $3, $5);
+                        $$ = new BinaryTerm(subterm, NodeType::SIGN, $3, $5);
                         subterm_map[subterm] = $$;
                     }
                     prRule("N_TERMS", "sign(Terms, Terms)");
@@ -294,7 +298,7 @@ N_TERMS         : T_PRV
                     if (iter != subterm_map.end()) {
                         $$ = iter->second;
                     } else {
-                        $$ = new BinaryTerm(subterm, $3, $5);
+                        $$ = new BinaryTerm(subterm, NodeType::VERIFY, $3, $5);
                         subterm_map[subterm] = $$;
                     }
                     prRule("N_TERMS", "verify(Terms, Terms)");
@@ -320,7 +324,7 @@ void printTokenInfo(const char* tokenType, const char* lexeme) {
     printf("TOKEN: %-15s  LEXEME: %s\n", tokenType, lexeme);
 }
 
-void walkTree(Node* node, int depth) {
+void printTree(Node* node, int depth) {
     for (int i = 0; i < depth; ++i) {
         std::cout << "--";
     }
@@ -332,20 +336,51 @@ void walkTree(Node* node, int depth) {
     
     auto* unary_derived = dynamic_cast<UnaryTerm*>(node);
     if (unary_derived) {
-        cout << "(" << node->getID() << ", " << node->getName() << ")" << endl;
-        walkTree(unary_derived->childTerm, depth);
+        cout << "(" << node->getID() << ", " << node->getName() << ", " << boolalpha << node->getMarked() << ")" << endl;
+        printTree(unary_derived->childTerm, depth);
         return;
     }
     auto* binary_derived = dynamic_cast<BinaryTerm*>(node);
     if (binary_derived) {
-        cout << "(" << node->getID() << ", " << node->getName() << ")" << endl;
-        walkTree(binary_derived->leftTerm, depth);
-        walkTree(binary_derived->rightTerm, depth);
+        cout << "(" << node->getID() << ", " << node->getName() << ", " << boolalpha << node->getMarked() << ")" << endl;
+        printTree(binary_derived->leftTerm, depth);
+        printTree(binary_derived->rightTerm, depth);
         return;
     }
     
     // Else we are just a Node
-    cout << "(" << node->getID() << ", " << node->getName() << ")" << endl;
+    cout << "(" << node->getID() << ", " << node->getName() << ", " << boolalpha << node->getMarked() << ")" << endl;
+}
+
+void walkTree(Node* node) {
+    auto iter = idToNodeMap.find(node->getID());
+    if (iter == idToNodeMap.end()) {
+        idToNodeMap[node->getID()] = node;
+    }
+    
+    auto* unary_derived = dynamic_cast<UnaryTerm*>(node);
+    if (unary_derived) {
+        walkTree(unary_derived->childTerm);
+        return;
+    }
+    auto* binary_derived = dynamic_cast<BinaryTerm*>(node);
+    if (binary_derived) {
+        walkTree(binary_derived->leftTerm);
+        walkTree(binary_derived->rightTerm);
+        return;
+    }
+}
+
+void deduction() {
+    bool newMark = false;
+    do {
+        for (auto it = idToNodeMap.begin(); it != idToNodeMap.end(); it++) {
+            switch (it->second->getType()) {
+                default:
+                    break;
+            }
+        }
+    } while (newMark);
 }
 
 int main(int argc, char** argv) {
@@ -359,11 +394,13 @@ int main(int argc, char** argv) {
     } while (!feof(yyin));
     
     for (auto it = terms_list.begin(); it != terms_list.end(); it++) {
-        cout << (*it)->getName() << endl;
+        walkTree((*it));
     }
-    cout << endl;
-    for (auto it = terms_list.begin(); it != terms_list.end(); it++) {
-        walkTree((*it), 0);
+    walkTree(target_term);
+    
+    cout << "Nodes: " << endl;
+    for (auto it = idToNodeMap.begin(); it != idToNodeMap.end(); it++) {
+        cout << "(" << it->first << ", " << it->second->getName() << ")" << endl;
     }
     
     return 0;

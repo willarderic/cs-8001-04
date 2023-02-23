@@ -1,1 +1,0 @@
-sdec(senc(pub_message, prv_k), prv_k);
