@@ -204,6 +204,7 @@ N_TERMS         : T_PRV
                         $$ = new UnaryTerm(subterm, NodeType::PK, $3);
                         subterm_map[subterm] = $$;
                     }
+                    $$->mark();
                     prRule("N_TERMS", "pk(Terms)");
                 }
                 | T_SK T_LPAREN N_TERMS T_RPAREN
@@ -260,6 +261,7 @@ N_TERMS         : T_PRV
                         $$ = new UnaryTerm(subterm, NodeType::VK, $3);
                         subterm_map[subterm] = $$;
                     }
+                    $$->mark();
                     prRule("N_TERMS", "vk(Terms)");
                 }
                 | T_SSK T_LPAREN N_TERMS T_RPAREN
@@ -412,12 +414,65 @@ void deduction() {
                 case NodeType::PI_1: break;
                 case NodeType::PI_2: break;
                 case NodeType::PK: break;
-                case NodeType::SK: break;
-                case NodeType::AENC: break;
+                case NodeType::SK:
+                {
+                    UnaryTerm* sk = dynamic_cast<UnaryTerm*>(it->second);
+                    if (!sk->marked() && sk->childTerm->marked()) {
+                        sk->mark();
+                        newMark = true;
+                    }
+                    if (sk->marked() && !sk->childTerm->marked()) {
+                        sk->childTerm->mark();
+                        newMark = true;
+                    }
+                    break;
+                }
+                case NodeType::AENC:
+                {
+                    BinaryTerm* aenc = dynamic_cast<BinaryTerm*>(it->second);
+                    if (aenc->leftTerm->getType() == NodeType::PK) {
+                        UnaryTerm* pk = dynamic_cast<UnaryTerm*>(aenc->leftTerm);
+                        if (pk->childTerm->marked()) {
+                            aenc->rightTerm->mark();
+                            newMark = true;
+                        }
+                    }
+                    
+                    if (aenc->leftTerm->marked() && aenc->rightTerm->marked()) {
+                        aenc->mark();
+                        newMark = true;
+                    }
+                    
+                    break;
+                }
                 case NodeType::ADEC: break;
                 case NodeType::VK: break;
-                case NodeType::SSK: break;
-                case NodeType::SIGN: break;
+                case NodeType::SSK: 
+                {
+                    UnaryTerm* ssk = dynamic_cast<UnaryTerm*>(it->second);
+                    if (!ssk->marked() && ssk->childTerm->marked()) {
+                        ssk->mark();
+                        newMark = true;                        
+                    }
+                    break;
+                }
+                case NodeType::SIGN:
+                {
+                    BinaryTerm* sign = dynamic_cast<BinaryTerm*>(it->second);
+                    if (sign->leftTerm->getType() == NodeType::VK) {
+                        UnaryTerm* vk = dynamic_cast<UnaryTerm*>(sign->leftTerm);
+                        if (vk->childTerm->marked()) {
+                            sign->rightTerm->mark();
+                            newMark = true;
+                        }
+                    }
+                    
+                    if (sign->leftTerm->marked() && sign->rightTerm->marked()) {
+                        sign->mark();
+                        newMark = true;
+                    }
+                    break;
+                }
                 case NodeType::VERIFY: break;
             }
         }
