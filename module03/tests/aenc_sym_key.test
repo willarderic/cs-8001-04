@@ -1,0 +1,1 @@
+aenc(pk(prv_A), prv_k), adec(sk(prv_A), aenc(pk(prv_A), prv_k)), senc(prv_k, prv_m), sdec(prv_k, senc(prv_k, prv_m)); sk(prv_A) 

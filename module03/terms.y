@@ -432,13 +432,13 @@ void deduction() {
                     BinaryTerm* aenc = dynamic_cast<BinaryTerm*>(it->second);
                     if (aenc->leftTerm->getType() == NodeType::PK) {
                         UnaryTerm* pk = dynamic_cast<UnaryTerm*>(aenc->leftTerm);
-                        if (pk->childTerm->marked()) {
+                        if (!aenc->rightTerm->marked() && pk->childTerm->marked()) {
                             aenc->rightTerm->mark();
                             newMark = true;
                         }
                     }
                     
-                    if (aenc->leftTerm->marked() && aenc->rightTerm->marked()) {
+                    if (!aenc->marked() && aenc->leftTerm->marked() && aenc->rightTerm->marked()) {
                         aenc->mark();
                         newMark = true;
                     }
@@ -467,7 +467,7 @@ void deduction() {
                         }
                     }
                     
-                    if (sign->leftTerm->marked() && sign->rightTerm->marked()) {
+                    if (!sign->marked() && sign->leftTerm->marked() && sign->rightTerm->marked()) {
                         sign->mark();
                         newMark = true;
                     }
@@ -500,6 +500,7 @@ int main(int argc, char** argv) {
     for (auto it = idToNodeMap.begin(); it != idToNodeMap.end(); it++) {
         cout << "(" << it->first << ", " << it->second->getName() << ", " << boolalpha << it->second->marked() << ")" << endl;
     }
+    cout << target_term->getName() << " -> ";
     if (target_term->marked()) {
         cout << "YES" << endl;
     } else {
